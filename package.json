@@ -1,0 +1,54 @@
+{
+  "name": "@softeria/ms-365-mcp-server",
+  "version": "0.6.2",
+  "description": "Microsoft 365 MCP Server",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "ms-365-mcp-server": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsx src/index.ts",
+    "format": "prettier --write \"**/*.{ts,mts,js,mjs,json,md}\"",
+    "release": "ts-node --esm bin/release.mts",
+    "inspect": "npx @modelcontextprotocol/inspector tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "microsoft",
+    "365",
+    "mcp",
+    "server"
+  ],
+  "author": "",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@azure/msal-node": "^2.1.0",
+    "@modelcontextprotocol/sdk": "^1.8.0",
+    "commander": "^11.1.0",
+    "express": "^5.1.0",
+    "js-yaml": "^4.1.0",
+    "keytar": "^7.9.0",
+    "winston": "^3.17.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^1.34.3",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.15",
+    "prettier": "^3.5.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/softeria/ms-365-mcp-server.git"
+  }
+}
