@@ -371,5 +371,25 @@
     "scopes": [
       "User.Read"
     ]
+  },
+  {
+    "pathPattern": "/me/drive/root:/{filename}:/content",
+    "method": "put",
+    "toolName": "upload-file-to-onedrive",
+    "scopes": ["Files.ReadWrite"]
+  },
+  {
+    "pathPattern": "/me/drive/root/children",
+    "method": "post", 
+    "toolName": "create-drive-item",
+    "scopes": ["Files.ReadWrite"]
+  },
+  {
+    "pathPattern": "/me/drive/items/{driveItem-id}/copy",
+    "method": "post",
+    "toolName": "copy-file-in-onedrive",
+    "scopes": [
+      "Files.ReadWrite"
+    ]
   }
 ]

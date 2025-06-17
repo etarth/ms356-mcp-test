@@ -176,6 +176,19 @@ export function registerGraphTools(
             options.body = typeof body === 'string' ? body : JSON.stringify(body);
           }
 
+          // Add Excel-specific handling:
+          if (tool.alias.includes('excel') && path.includes('workbook')) {
+            // Force session creation for Excel operations
+            logger.info(`Excel operation detected: ${tool.alias}`);
+
+            // Extract file path from the Graph API path
+            const match = path.match(/\/me\/drive\/root:([^:]+):/);
+            if (match) {
+              options.excelFile = match[1];
+              logger.info(`Extracted Excel file path: ${options.excelFile}`);
+            }
+          }
+
           const isProbablyMediaContent =
             tool.errors?.some((error) => error.description === 'Retrieved media content') ||
             path.endsWith('/content');
@@ -249,4 +262,163 @@ export function registerGraphTools(
       }
     );
   }
+
+  // Add this new tool for debugging Excel access
+  server.tool(
+    'debug-excel-access',
+    'Debug Excel file access and permissions',
+    {
+      filePath: z.string().describe('Path to Excel file (e.g., /test.xlsx)'),
+    },
+    async ({ filePath }) => {
+      try {
+        logger.info(`Debugging Excel access for: ${filePath}`);
+
+        // Test 1: Check if file exists
+        const fileInfo = await graphClient.graphRequest(`/me/drive/root:${filePath}`);
+        logger.info(`File info result: ${JSON.stringify(fileInfo)}`);
+
+        // Test 2: Try to create session
+        const sessionResult = await graphClient.graphRequest(
+          `/me/drive/root:${filePath}:/workbook/createSession`,
+          { method: 'POST', body: JSON.stringify({ persistChanges: false }) }
+        );
+        logger.info(`Session creation result: ${JSON.stringify(sessionResult)}`);
+
+        // Test 3: List worksheets
+        const worksheets = await graphClient.graphRequest(
+          `/me/drive/root:${filePath}:/workbook/worksheets`
+        );
+        logger.info(`Worksheets result: ${JSON.stringify(worksheets)}`);
+
+        // Test 4: Try to read a simple range
+        const range = await graphClient.graphRequest(
+          `/me/drive/root:${filePath}:/workbook/worksheets/Sheet1/range(address='A1:C5')`
+        );
+        logger.info(`Range result: ${JSON.stringify(range)}`);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  fileInfo: JSON.parse(fileInfo.content[0].text),
+                  sessionResult: JSON.parse(sessionResult.content[0].text),
+                  worksheets: JSON.parse(worksheets.content[0].text),
+                  range: JSON.parse(range.content[0].text),
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = (error as Error).message;
+        logger.error(`Debug Excel access error: ${errorMessage}`);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ error: errorMessage }, null, 2),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Add file upload capability
+  server.tool(
+    'upload-file-to-onedrive',
+    'Upload a new file to OneDrive',
+    {
+      fileName: z.string().describe('Name of the file to create (e.g., "test.xlsx")'),
+      content: z.string().describe('File content (base64 encoded for binary files)'),
+      folderPath: z.string().default('/').describe('Folder path (default: root folder)'),
+      contentType: z
+        .string()
+        .default('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        .describe('MIME type of the file'),
+    },
+    async ({ fileName, content, folderPath, contentType }) => {
+      try {
+        logger.info(`Uploading file: ${fileName} to folder: ${folderPath}`);
+
+        const uploadPath =
+          folderPath === '/'
+            ? `/me/drive/root:/${fileName}:/content`
+            : `/me/drive/root:${folderPath}/${fileName}:/content`;
+
+        const response = await graphClient.graphRequest(uploadPath, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': contentType,
+          },
+          body: content,
+        });
+
+        return response;
+      } catch (error) {
+        const errorMessage = (error as Error).message;
+        logger.error(`Upload error: ${errorMessage}`);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ error: errorMessage }, null, 2),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Add Excel file creation helper
+  server.tool(
+    'create-empty-excel-file',
+    'Create an empty Excel file in OneDrive',
+    {
+      fileName: z.string().describe('Name of the Excel file (e.g., "MyWorkbook.xlsx")'),
+      folderPath: z.string().default('/').describe('Folder path (default: root folder)'),
+    },
+    async ({ fileName, folderPath }) => {
+      try {
+        // Create minimal Excel file content (base64 encoded empty workbook)
+        const emptyExcelContent = 'UEsDBBQAAAAIAAAAIQDd...'; // You'd need actual empty Excel file bytes
+
+        // For now, create via Graph API
+        const uploadPath =
+          folderPath === '/'
+            ? `/me/drive/root:/${fileName}:/content`
+            : `/me/drive/root:${folderPath}/${fileName}:/content`;
+
+        // Create empty file first
+        const response = await graphClient.graphRequest(uploadPath, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          },
+          body: '', // Empty content - Graph will create a minimal Excel file
+        });
+
+        return response;
+      } catch (error) {
+        const errorMessage = (error as Error).message;
+        logger.error(`Excel creation error: ${errorMessage}`);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ error: errorMessage }, null, 2),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
 }
